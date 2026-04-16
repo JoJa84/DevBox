@@ -184,8 +184,11 @@ CONF_EOF
         git init -b main >/dev/null
         git config user.name "$GH_USER"
         git config user.email "$GH_USER@users.noreply.github.com"
-        # Turn on the credential store so git_auth's helper is the one used.
-        git config credential.helper store
+        # Ambient credential helper: point manual 'git pull'/'git push' inside
+        # ~/projects at the same chmod-600 credentials file that git_auth() uses.
+        # Without --file, git's default store would be picked up instead, bypassing
+        # our token-scoped file entirely.
+        git config credential.helper "store --file=$CRED_FILE"
 
         if [ -z "$(ls -A .)" ]; then
             cat > README.md << README_EOF

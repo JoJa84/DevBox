@@ -46,31 +46,27 @@ device_serial=$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')
 device_model=$(adb -s "$device_serial" shell getprop ro.product.model | tr -d '\r')
 log "Device: $device_serial ($device_model)"
 
-# ─── APK download (pinned versions + optional SHA256 verify) ────────────────
+# ─── APK download (GitHub-API-resolved + cached + integrity-checked) ────────
 #
-# APKs are cached under apks/ and reused across the batch. The first flash in
-# a clean clone triggers one download per APK; subsequent flashes in the same
-# shop session are offline as long as apks/ still has them.
+# We don't pin exact filenames in this script — Termux's release asset names
+# contain build-metadata suffixes that drift between versions (e.g. the app
+# uses `+github-debug_universal.apk` while the boot addon uses
+# `+github.debug.apk` without `_universal`). Instead we query the GitHub API
+# once per APK and filter by a per-repo regex that we know matches.
 #
-# Versions below are pinned. Update them by editing this block when a new
-# Termux release ships. If a download URL 404s, GitHub's unauthenticated API
-# is still used as a fallback, but pinning avoids surprise breakage.
+# Cache: the first flash downloads 3 APKs to apks/. Every subsequent flash
+# in the same clone reuses them offline. Integrity is verified two ways:
+#   1. Optional SHA256 pin — fill TERMUX_*_SHA256 after the first flash
+#      using  `sha256sum apks/*.apk` to lock the cache against corruption.
+#   2. Magic-byte check — APKs are zip files, so the first two bytes must
+#      be "PK". Catches truncated / HTML-error-page downloads.
 #
-# To populate SHA256 values, download the APK once and run:
-#    sha256sum apks/termux.apk
-# then paste the hash into TERMUX_APP_SHA256. Empty string = skip verify.
+# Rate-limit note: 3 API calls per clone is well under GitHub's 60/hr cap,
+# even if your cousin's shop flashes from a single IP.
 
-TERMUX_APP_VERSION="v0.118.3"
 TERMUX_APP_SHA256=""
-TERMUX_APP_URL="https://github.com/termux/termux-app/releases/download/${TERMUX_APP_VERSION}/termux-app_${TERMUX_APP_VERSION}+apt-android-7-github-debug_universal.apk"
-
-TERMUX_BOOT_VERSION="v0.8.1"
 TERMUX_BOOT_SHA256=""
-TERMUX_BOOT_URL="https://github.com/termux/termux-boot/releases/download/${TERMUX_BOOT_VERSION}/termux-boot-app_${TERMUX_BOOT_VERSION}+github-debug_universal.apk"
-
-TERMUX_API_VERSION="v0.50.1"
 TERMUX_API_SHA256=""
-TERMUX_API_URL="https://github.com/termux/termux-api/releases/download/${TERMUX_API_VERSION}/termux-api-app_${TERMUX_API_VERSION}+github-debug_universal.apk"
 
 mkdir -p "$APK_DIR"
 
@@ -91,35 +87,57 @@ verify_sha256() {
     fi
 }
 
+verify_apk_magic() {
+    local file="$1"
+    # APK is a zip; zip files start with "PK\x03\x04". Read first two bytes.
+    local head2
+    head2=$(head -c 2 "$file" 2>/dev/null || true)
+    if [ "$head2" != "PK" ]; then
+        die "$file is not a valid APK (magic bytes mismatch). Delete it and retry."
+    fi
+}
+
+resolve_apk_url() {
+    # Args: <repo>  <asset-filter-pattern>
+    # Returns: first browser_download_url whose filename matches the pattern.
+    local repo="$1" pattern="$2"
+    curl -s "https://api.github.com/repos/$repo/releases/latest" \
+        | grep browser_download_url \
+        | grep -E "$pattern" \
+        | head -1 \
+        | cut -d '"' -f 4
+}
+
 fetch_apk() {
-    local out="$1" url="$2" expected_sha="$3" repo="$4"
+    local out="$1" repo="$2" pattern="$3" expected_sha="$4"
 
     if [ -f "$APK_DIR/$out" ]; then
+        verify_apk_magic "$APK_DIR/$out"
         verify_sha256 "$APK_DIR/$out" "$expected_sha"
-        log "  ✓ $out already cached"
+        log "  ✓ $out already cached (magic OK)"
         return 0
     fi
 
-    log "  fetching $out from pinned URL..."
-    if ! curl -L -f --progress-bar -o "$APK_DIR/$out" "$url" 2>/dev/null; then
-        warn "pinned URL failed, falling back to GitHub latest-release API for $repo"
-        local fallback
-        fallback=$(curl -s "https://api.github.com/repos/$repo/releases/latest" \
-            | grep browser_download_url \
-            | grep -E 'universal\.apk"' \
-            | head -1 \
-            | cut -d '"' -f 4)
-        [ -z "$fallback" ] && die "cannot locate APK for $repo"
-        curl -L -f --progress-bar -o "$APK_DIR/$out" "$fallback" \
-            || die "download failed: $repo"
-    fi
+    log "  resolving latest $out from $repo ..."
+    local url
+    url=$(resolve_apk_url "$repo" "$pattern")
+    [ -z "$url" ] && die "could not locate an APK asset matching /$pattern/ in $repo/releases/latest"
+    log "  downloading $(basename "$url") ..."
+    curl -L -f --progress-bar -o "$APK_DIR/$out" "$url" \
+        || die "download failed: $repo"
+    verify_apk_magic "$APK_DIR/$out"
     verify_sha256 "$APK_DIR/$out" "$expected_sha"
 }
 
 log "Fetching Termux APKs (cached to $APK_DIR/)..."
-fetch_apk "termux.apk"      "$TERMUX_APP_URL"  "$TERMUX_APP_SHA256"  "termux/termux-app"
-fetch_apk "termux-boot.apk" "$TERMUX_BOOT_URL" "$TERMUX_BOOT_SHA256" "termux/termux-boot"
-fetch_apk "termux-api.apk"  "$TERMUX_API_URL"  "$TERMUX_API_SHA256"  "termux/termux-api"
+# Patterns come from observed Termux release naming:
+#   termux-app       : *_universal.apk         (always has _universal)
+#   termux-boot      : *github\.debug\.apk     (no _universal, dotted suffix)
+#   termux-api       : *github\.debug\.apk     (no _universal, dotted suffix)
+# grep -E expression must exclude checksum/signature files, so keep \.apk at end.
+fetch_apk "termux.apk"      "termux/termux-app"  '_universal\.apk"'       "$TERMUX_APP_SHA256"
+fetch_apk "termux-boot.apk" "termux/termux-boot" 'github[.-]debug\.apk"'  "$TERMUX_BOOT_SHA256"
+fetch_apk "termux-api.apk"  "termux/termux-api"  'github[.-]debug\.apk"'  "$TERMUX_API_SHA256"
 
 # ─── Install APKs ───────────────────────────────────────────────────────────
 
