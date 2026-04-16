@@ -1,8 +1,8 @@
 # HANDOFF — Session-to-session pickup
 
-**Last updated:** 2026-04-16 — first build session (Joe asleep, autonomy delegated)
+**Last updated:** 2026-04-16 — first build session, Codex rounds 1 + 2 applied
 
-**Current status:** **v0 SHIPPABLE** — all planned artifacts written, one Codex adversarial review pass complete, 13 findings applied and committed. Joe can hand this repo to his cousin in the morning and flash a test device.
+**Current status:** **v0 SHIPPABLE** — all planned artifacts written, TWO Codex adversarial review passes complete (17 findings total, all applied and committed). Joe can hand this repo to his cousin in the morning and flash a test device.
 
 **Next action:** One of the following, in priority order:
 1. **Joe:** read the repo, flash a single test device end-to-end, report back what breaks in the real world. `FLASH.md` is the cousin's script; `flash-device.sh` is the PC-side orchestrator.
@@ -21,7 +21,9 @@
 b0930bc  docs: scaffold DevBox v0 repo                         (doc foundation)
 0806346  feat: provision + wizard + sync scripts + MCP config  (device software)
 b86079b  feat: flash orchestrator + kiosk/reflash docs         (cousin's tooling)
-72c74b8  fix: apply Codex adversarial review findings           (security + correctness)
+72c74b8  fix: apply Codex adversarial review findings           (round 1: 13 findings)
+cbe7346  docs: update HANDOFF + DECISIONS after Codex review    (decision records)
+e4da129  fix: Codex round 2 — APK resolution + creds + magic    (round 2: 4 findings)
 ```
 
 ---
