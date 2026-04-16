@@ -102,51 +102,48 @@ fi
 
 log "Installing MCP server packages..."
 
-# Node-based MCP servers
-NODE_MCP_SERVERS=(
-    "@modelcontextprotocol/server-filesystem"
-    "@modelcontextprotocol/server-github"
-)
-for srv in "${NODE_MCP_SERVERS[@]}"; do
-    if npm list -g --depth=0 2>/dev/null | grep -q "${srv}"; then
+# Filesystem MCP is mandatory — Claude Code without file access is useless.
+log "  installing @modelcontextprotocol/server-filesystem (REQUIRED)..."
+if npm list -g --depth=0 2>/dev/null | grep -q "@modelcontextprotocol/server-filesystem"; then
+    log "  ✓ filesystem server already installed"
+else
+    npm install -g "@modelcontextprotocol/server-filesystem" >/dev/null 2>&1 \
+        || fail "npm install @modelcontextprotocol/server-filesystem failed — cannot continue" 3
+fi
+
+# GitHub server is optional (only useful if user sets up GH sync)
+log "  installing @modelcontextprotocol/server-github..."
+if npm list -g --depth=0 2>/dev/null | grep -q "@modelcontextprotocol/server-github"; then
+    log "  ✓ github server already installed"
+else
+    npm install -g "@modelcontextprotocol/server-github" >/dev/null 2>&1 \
+        || warn "github server install failed (optional, wizard will skip this MCP)"
+fi
+
+# Python-based MCP servers (git, fetch). git is mandatory, fetch is optional.
+for srv in "mcp-server-git"; do
+    if pip show "${srv}" >/dev/null 2>&1; then
         log "  ✓ ${srv} already installed"
     else
-        log "  installing ${srv}..."
-        npm install -g "${srv}" >/dev/null 2>&1 \
-            || warn "npm install ${srv} failed (non-fatal, MCP will be disabled)"
+        log "  installing ${srv} (REQUIRED)..."
+        pip install --quiet --no-input "${srv}" \
+            || fail "pip install ${srv} failed — cannot continue" 4
     fi
 done
 
-# Python-based MCP servers (git, fetch)
-# pip is slow on Termux; use --quiet and be patient
-PYTHON_MCP_SERVERS=(
-    "mcp-server-git"
-    "mcp-server-fetch"
-)
-for srv in "${PYTHON_MCP_SERVERS[@]}"; do
+for srv in "mcp-server-fetch"; do
     if pip show "${srv}" >/dev/null 2>&1; then
         log "  ✓ ${srv} already installed"
     else
         log "  installing ${srv}..."
         pip install --quiet --no-input "${srv}" \
-            || warn "pip install ${srv} failed (non-fatal, MCP will be disabled)"
+            || warn "pip install ${srv} failed (optional, wizard will skip this MCP)"
     fi
 done
 
-# ─── MCP config ─────────────────────────────────────────────────────────────
-
-log "Writing MCP server config..."
-CLAUDE_CONFIG_DIR="$HOME/.claude"
-mkdir -p "$CLAUDE_CONFIG_DIR"
-
-# If repo is cloned locally, use its mcp-config.json; otherwise write inline.
-if [ -f "$HOME/devbox-repo/mcp-config.json" ]; then
-    cp "$HOME/devbox-repo/mcp-config.json" "$CLAUDE_CONFIG_DIR/mcp-config.json"
-elif [ -f "$(dirname "$0")/mcp-config.json" ]; then
-    cp "$(dirname "$0")/mcp-config.json" "$CLAUDE_CONFIG_DIR/mcp-config.json"
-else
-    warn "mcp-config.json not found alongside provision.sh — wizard will write a default"
-fi
+# Note: mcp-config.json in this repo is a reference document. Claude Code's
+# actual MCP state lives in ~/.claude.json and is managed by wizard.sh via
+# `claude mcp add` commands. We do not copy mcp-config.json anywhere here.
 
 # ─── devbox helper command ──────────────────────────────────────────────────
 

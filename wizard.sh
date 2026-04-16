@@ -104,16 +104,23 @@ fi
 
 step "2/6  Sign into Anthropic"
 
-if claude auth status >/dev/null 2>&1; then
+# Claude Code stores credentials in ~/.claude/.credentials.json after login.
+# Check for that file rather than relying on a subcommand whose name has
+# shifted between Claude Code releases.
+if [ -f "$HOME/.claude/.credentials.json" ] || [ -f "$HOME/.claude/auth.json" ]; then
     ok "Already signed in."
 else
     cat << 'AUTH_EOF'
 
-  Running 'claude login' — a browser window will open. Sign in with
-  your Anthropic account.
+  Running 'claude login' — a browser window opens. Sign into Anthropic.
 
-  No Anthropic account? Open https://claude.ai in your browser and
-  create one first (free), then come back here.
+  To use Claude Code you need one of:
+    • A Claude Pro or Claude Max subscription (recommended — runs
+      Claude Code against your monthly quota).
+    • OR an Anthropic API account with billing set up (pay per token).
+
+  No account? Open https://claude.ai to create one, add a plan, then
+  come back here.
 
 AUTH_EOF
     ask "Ready? (y/N)"
@@ -150,15 +157,21 @@ esac
 
 # ─── Step 4: Sync method ────────────────────────────────────────────────────
 
-step "4/6  How should your work sync to your PC?"
+step "4/6  How should your project code sync to your PC?"
 
 cat << 'SYNC_EOF'
 
+  Only your ~/projects folder syncs — Claude Code's own settings and
+  conversation history stay on this device (they contain auth tokens
+  and private chats).
+
   [1] GitHub repo (recommended for developers)
-        Your ~/projects and ~/.claude push to a private GitHub repo.
+        Your ~/projects pushes to a private GitHub repo.
         You'll need a GitHub Personal Access Token.
+        Bidirectional — edit on PC, pull on phone, and vice versa.
   [2] Google Drive folder
-        Uses rclone. Walks you through a Google login link.
+        Uses rclone. One-way backup (phone → Drive).
+        Pick this if you don't want GitHub.
   [3] Skip for now
         Set up later with 'devbox wizard --reconfigure'.
 
@@ -201,28 +214,49 @@ esac
 
 step "5/6  Wiring up MCP servers"
 
-ensure_mcp() {
+# Wire MCPs at user scope so they're available in any working directory.
+# All options go BEFORE <name>; <command> goes after `--`.
+#   claude mcp add --scope user [--env K=V] <name> -- <command> [args...]
+
+mcp_exists() {
+    # Parse 'claude mcp list' — first whitespace-delimited token per line is name.
+    claude mcp list 2>/dev/null | awk '{print $1}' | grep -qx "$1"
+}
+
+add_mcp() {
     local name="$1"; shift
-    if claude mcp list 2>/dev/null | grep -q "^${name}"; then
-        ok "${name} already wired."
-        return 0
+    if mcp_exists "$name"; then
+        ok "${name} already wired."; return 0
     fi
-    if claude mcp add "${name}" "$@" >/dev/null 2>&1; then
+    if claude mcp add --scope user "$name" "$@" >/dev/null 2>&1; then
         ok "${name} wired."
     else
-        warn "${name} — wiring failed (you can retry manually with: claude mcp add ${name} $*)"
+        warn "${name} wire failed. Retry: claude mcp add --scope user ${name} $*"
     fi
 }
 
-ensure_mcp filesystem -- npx -y @modelcontextprotocol/server-filesystem "$HOME/projects"
-ensure_mcp git -- python -m mcp_server_git
-ensure_mcp fetch -- python -m mcp_server_fetch
+add_mcp_with_env() {
+    local name="$1" env_assign="$2"; shift 2
+    if mcp_exists "$name"; then
+        ok "${name} already wired."; return 0
+    fi
+    if claude mcp add --scope user --env "$env_assign" "$name" "$@" >/dev/null 2>&1; then
+        ok "${name} wired."
+    else
+        warn "${name} wire failed. Retry manually."
+    fi
+}
+
+add_mcp filesystem -- npx -y @modelcontextprotocol/server-filesystem "$HOME/projects"
+add_mcp git        -- python -m mcp_server_git
+add_mcp fetch      -- python -m mcp_server_fetch
 
 # GitHub MCP needs a token — only wire it if sync-github.sh wrote one.
 if [ -f "$DEVBOX_HOME/github-token" ]; then
     GH_TOKEN=$(cat "$DEVBOX_HOME/github-token")
-    ensure_mcp github --env "GITHUB_PERSONAL_ACCESS_TOKEN=${GH_TOKEN}" -- \
-        npx -y @modelcontextprotocol/server-github
+    add_mcp_with_env github \
+        "GITHUB_PERSONAL_ACCESS_TOKEN=${GH_TOKEN}" \
+        -- npx -y @modelcontextprotocol/server-github
 else
     warn "GitHub MCP skipped (no token). Set up later with 'devbox wizard --reconfigure'."
 fi

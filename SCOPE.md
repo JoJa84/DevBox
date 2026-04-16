@@ -12,7 +12,8 @@ Joe approved this scope before sleeping. Do not re-litigate it.
 
 - **First boot:** Wizard walks buyer through WiFi → Anthropic OAuth (`claude login`) → keyboard mode (voice-first or Bluetooth keyboard) → sync choice (GitHub or Drive) → done.
 - **Normal use:** Unlock phone → tap DevBox icon → terminal opens running `claude`. Screen pinning keeps them there.
-- **State sync:** `~/.claude` (settings, history, MCP state) and `~/projects` (code) push to the buyer's chosen remote on interval and on demand.
+- **Code sync:** `~/projects` (code only — not `~/.claude`) pushes to the buyer's chosen remote on demand via `devbox sync`. GitHub path is bidirectional (pull + push); Drive path is one-way backup (push only).
+- **Why not sync `~/.claude`?** It contains Claude Code credentials and conversation history. Keeping it on-device avoids leaking auth tokens to a cloud remote and matches the "isolation from your main machine" positioning.
 
 ## Claude Code setup
 

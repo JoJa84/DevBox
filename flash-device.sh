@@ -46,33 +46,80 @@ device_serial=$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')
 device_model=$(adb -s "$device_serial" shell getprop ro.product.model | tr -d '\r')
 log "Device: $device_serial ($device_model)"
 
-# ─── APK download ───────────────────────────────────────────────────────────
+# ─── APK download (pinned versions + optional SHA256 verify) ────────────────
+#
+# APKs are cached under apks/ and reused across the batch. The first flash in
+# a clean clone triggers one download per APK; subsequent flashes in the same
+# shop session are offline as long as apks/ still has them.
+#
+# Versions below are pinned. Update them by editing this block when a new
+# Termux release ships. If a download URL 404s, GitHub's unauthenticated API
+# is still used as a fallback, but pinning avoids surprise breakage.
+#
+# To populate SHA256 values, download the APK once and run:
+#    sha256sum apks/termux.apk
+# then paste the hash into TERMUX_APP_SHA256. Empty string = skip verify.
+
+TERMUX_APP_VERSION="v0.118.3"
+TERMUX_APP_SHA256=""
+TERMUX_APP_URL="https://github.com/termux/termux-app/releases/download/${TERMUX_APP_VERSION}/termux-app_${TERMUX_APP_VERSION}+apt-android-7-github-debug_universal.apk"
+
+TERMUX_BOOT_VERSION="v0.8.1"
+TERMUX_BOOT_SHA256=""
+TERMUX_BOOT_URL="https://github.com/termux/termux-boot/releases/download/${TERMUX_BOOT_VERSION}/termux-boot-app_${TERMUX_BOOT_VERSION}+github-debug_universal.apk"
+
+TERMUX_API_VERSION="v0.50.1"
+TERMUX_API_SHA256=""
+TERMUX_API_URL="https://github.com/termux/termux-api/releases/download/${TERMUX_API_VERSION}/termux-api-app_${TERMUX_API_VERSION}+github-debug_universal.apk"
 
 mkdir -p "$APK_DIR"
 
+verify_sha256() {
+    local file="$1" expected="$2"
+    [ -z "$expected" ] && return 0   # no hash pinned, skip
+    local actual
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$file" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$file" | awk '{print $1}')
+    else
+        warn "no sha256sum/shasum tool — skipping hash verify for $file"
+        return 0
+    fi
+    if [ "$actual" != "$expected" ]; then
+        die "SHA256 mismatch on $file (expected $expected, got $actual). Delete $file and retry."
+    fi
+}
+
 fetch_apk() {
-    local repo="$1" out="$2" url
+    local out="$1" url="$2" expected_sha="$3" repo="$4"
+
     if [ -f "$APK_DIR/$out" ]; then
+        verify_sha256 "$APK_DIR/$out" "$expected_sha"
         log "  ✓ $out already cached"
         return 0
     fi
-    log "  fetching latest $out from $repo ..."
-    url=$(curl -s "https://api.github.com/repos/$repo/releases/latest" \
-        | grep browser_download_url \
-        | grep -E 'universal\.apk"' \
-        | head -1 \
-        | cut -d '"' -f 4)
-    if [ -z "$url" ]; then
-        die "could not determine download URL for $repo"
+
+    log "  fetching $out from pinned URL..."
+    if ! curl -L -f --progress-bar -o "$APK_DIR/$out" "$url" 2>/dev/null; then
+        warn "pinned URL failed, falling back to GitHub latest-release API for $repo"
+        local fallback
+        fallback=$(curl -s "https://api.github.com/repos/$repo/releases/latest" \
+            | grep browser_download_url \
+            | grep -E 'universal\.apk"' \
+            | head -1 \
+            | cut -d '"' -f 4)
+        [ -z "$fallback" ] && die "cannot locate APK for $repo"
+        curl -L -f --progress-bar -o "$APK_DIR/$out" "$fallback" \
+            || die "download failed: $repo"
     fi
-    curl -L -f --progress-bar -o "$APK_DIR/$out" "$url" \
-        || die "download failed: $repo"
+    verify_sha256 "$APK_DIR/$out" "$expected_sha"
 }
 
-log "Fetching Termux APKs..."
-fetch_apk "termux/termux-app"  "termux.apk"
-fetch_apk "termux/termux-boot" "termux-boot.apk"
-fetch_apk "termux/termux-api"  "termux-api.apk"
+log "Fetching Termux APKs (cached to $APK_DIR/)..."
+fetch_apk "termux.apk"      "$TERMUX_APP_URL"  "$TERMUX_APP_SHA256"  "termux/termux-app"
+fetch_apk "termux-boot.apk" "$TERMUX_BOOT_URL" "$TERMUX_BOOT_SHA256" "termux/termux-boot"
+fetch_apk "termux-api.apk"  "$TERMUX_API_URL"  "$TERMUX_API_SHA256"  "termux/termux-api"
 
 # ─── Install APKs ───────────────────────────────────────────────────────────
 

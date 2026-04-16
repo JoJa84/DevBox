@@ -59,7 +59,9 @@ setup() {
     Storage> drive      (or type 'drive' and pick the number it shows)
     client_id> (leave blank, press Enter)
     client_secret> (leave blank, press Enter)
-    scope> 1            (Full access)
+    scope> 3            (drive.file — files rclone creates only;
+                         DevBox cannot read your existing Drive files,
+                         only the ones it writes to its own folder)
     service_account_file> (leave blank, press Enter)
     Edit advanced config> n
     Use auto config> n  (important: say N so you get a URL)
@@ -71,6 +73,11 @@ setup() {
 
   When you see the 'Current remotes:' list with devbox-drive in it,
   choose 'q' to quit.
+
+  Why scope 3 (drive.file)? DevBox only needs to read/write its own
+  backup folder. Scope 1 (Full access) would let rclone — and anything
+  with access to this device — read your entire Google Drive. We pick
+  the minimum permission that gets the job done.
 
 SETUP_EOF
 

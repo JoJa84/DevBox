@@ -108,27 +108,36 @@ adb push provision.sh wizard.sh sync-github.sh sync-drive.sh \
 
    This runs for 5–8 minutes depending on network speed. It installs Node LTS, Python, the Claude Code CLI, and the MCP server packages.
 
-5. When you see `Provisioning complete.`, **reboot the phone**:
+5. When you see `Provisioning complete.`, **reboot the phone**. Termux can't
+   reboot stock Android on its own — do it one of these ways:
 
    ```
-   reboot
+   # Option A (recommended) — from your PC:
+   adb reboot
+
+   # Option B — hold the power button on the phone → Restart.
    ```
 
-### 6. Final device setup (2 min)
+### 6. Final device setup (3 min)
 
 On reboot, the phone will show the lock screen. Unlock, then:
 
-1. **Disable battery optimization for Termux** (critical — Samsung will kill it otherwise):
+1. **Open each Termux app once so Android registers them.** Termux:Boot
+   will not autostart scripts until it has been launched at least once
+   from the launcher. Open Termux, then Termux:Boot, then Termux:API.
+   (They'll each show an info screen — that's fine, close it.)
+
+2. **Disable battery optimization for Termux** (critical — Samsung will kill it otherwise):
    Settings → Apps → Termux → Battery → **Unrestricted**
    Do the same for **Termux:Boot** and **Termux:API**.
 
-2. **Enable Screen Pinning** (kiosk-like mode):
+3. **Enable Screen Pinning** (kiosk-like mode):
    Settings → Biometrics and security → Other security settings → Pin windows → **On** → "Ask for PIN before unpinning" **On**.
 
-3. **Hide other apps from the launcher:**
+4. **Hide other apps from the launcher:**
    Long-press home → Settings → Hide apps → select all except **Termux**, **Settings**, **Phone**, **Messages**.
 
-4. **Open Termux.** The first-boot wizard runs automatically. You can close it if you want the **buyer** to do setup — next time they open Termux, the wizard resumes.
+5. **Open Termux.** The first-boot wizard runs automatically. You can close it if you want the **buyer** to do setup — next time they open Termux, the wizard resumes.
 
 ### 7. Wipe shop WiFi (important — privacy)
 

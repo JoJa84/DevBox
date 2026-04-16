@@ -7,7 +7,7 @@ A mobile sandbox for Claude Code. A refurbished Galaxy S22, flashed with a Termu
 - **A dedicated device for AI coding agents.** No personal data, no other apps — just Claude Code and your project directory.
 - **Secure-by-isolation.** The agent runs on a device that can't touch your main machine. If something goes sideways, reflash and move on.
 - **Portable.** It's a phone. Pair a Bluetooth keyboard for real coding, or use voice-first for short prompts.
-- **Resumable.** `~/.claude` and `~/projects` sync to a private GitHub repo or Google Drive folder. Start a task in bed, finish at your desk.
+- **Resumable.** Your `~/projects` code syncs to a private GitHub repo (bidirectional) or Google Drive folder (backup). Start a task in bed, finish at your desk. Claude Code's own credentials and conversation history stay on the device — nothing secret leaves it.
 
 ## Who it's for
 
