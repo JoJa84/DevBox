@@ -1,34 +1,36 @@
-# AI Phone Agent — Project Brief
+# DevBox
 
-A dedicated AI-agent appliance built from a refurbished Android phone (e.g., Samsung Galaxy), flashed with custom software so the device is a single-purpose AI bot in your pocket.
+A mobile sandbox for Claude Code. A refurbished Galaxy S22, flashed with a Termux-based kiosk, boots into the Claude Code CLI. Log into Anthropic once, start coding on the go, and sync your work back to your PC via GitHub or Google Drive.
 
-## The Pitch
+## What it is
 
-Openclaw (Claudia/Open-Claw style hardware AI pets) kicked off a huge trend — people love dedicated AI devices. No one has shipped a **phone-form-factor** AI agent yet. That's the opening.
+- **A dedicated device for AI coding agents.** No personal data, no other apps — just Claude Code and your project directory.
+- **Secure-by-isolation.** The agent runs on a device that can't touch your main machine. If something goes sideways, reflash and move on.
+- **Portable.** It's a phone. Pair a Bluetooth keyboard for real coding, or use voice-first for short prompts.
+- **Resumable.** `~/.claude` and `~/projects` sync to a private GitHub repo or Google Drive folder. Start a task in bed, finish at your desk.
 
-- Refurbished phone supply → cousin's refurb business.
-- Custom software → built with Claude Code.
-- Sales channels → Amazon, eBay, direct.
-- Contained environment, no personal data except what the user feeds it.
-- Mobile — it's an AI agent you can take anywhere.
-- Potential "ultimate remote control" with preconfigured automations.
+## Who it's for
 
-## Open Questions (Drive the Plan)
+Developers and tinkerers who want to try Claude Code agents without granting `--dangerously-skip-permissions` to their main machine.
 
-1. **Market.** Is there demand? What specific pain points does it solve? Who is the customer? TAM/SAM/SOM?
-2. **Product.** What does it look like? How does it work — UX, screens, voice, input, output?
-3. **Feasibility & security.** Bare Linux + a bot on locked-down hardware — can we keep a lock screen, password, disk encryption, remote wipe? Can we harden it?
-4. **Connectivity.** How does it get on the internet? SIM, Wi-Fi only, tethered, eSIM reseller?
-5. **Pricing & unit economics.** Retail price, COGS, margin, expected profit per unit.
-6. **Policy risk.** Does flashing/reselling violate Samsung, Google, carrier, Amazon, or eBay policy? IMEI, bootloader unlock, Knox, etc.
-7. **IP.** Is the concept / software / UX patentable? Defensible moat?
-8. **Setup UX.** Can we make onboarding monkey-simple? Out-of-box to working bot in X minutes with zero technical knowledge.
-9. **Blind spots.** What am I not asking that I should be?
-10. **Competitive moat.** What stops Apple/Samsung/Google from building this better and killing us?
+## Repo layout
 
-## Output I Want From Planning
+| File | Purpose |
+| --- | --- |
+| `BRIEF.md` | Original concept pitch (preserved for history) |
+| `SCOPE.md` | Locked v0 scope — read first |
+| `HANDOFF.md` | Session-to-session continuation state |
+| `DECISIONS.md` | Non-obvious build-time choices |
+| `BRAND-RISK.md` | Trademark considerations for "DevBox" |
+| `FLASH.md` | Cousin's step-by-step for one device |
+| `provision.sh` | Termux-side installer |
+| `wizard.sh` | First-boot interactive setup |
+| `sync-github.sh` | State sync via private GitHub repo |
+| `sync-drive.sh` | State sync via Google Drive (rclone) |
+| `mcp-config.json` | Preloaded MCP servers |
+| `kiosk-setup.md` | Rooted vs. stock lockdown options |
+| `reflash-to-stock.md` | Recovery path (safety net) |
 
-- Go / no-go recommendation with reasoning.
-- If go: phased build plan — MVP → v1 → scale.
-- Risks ranked by likelihood × impact.
-- A first-90-days action list.
+## Status
+
+v0 beta. Target: flash 1–3 units for internal test, then 20 units for the first eBay listing.

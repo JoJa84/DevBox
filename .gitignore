@@ -1,0 +1,25 @@
+# Claude Code local state
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
+.claude/history.jsonl
+.claude/todos/
+.claude/*.local.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Node (for any future tooling)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Local APK cache (will be populated at flash time, not checked in)
+apks/
+
+# Local environment
+.env
+.env.local
