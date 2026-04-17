@@ -98,3 +98,38 @@ Each entry: what was picked, what was rejected, why. Future sessions read this t
 **Pick:** `flash-device.sh` encodes an explicit version string and URL for each of the three Termux APKs, plus an empty SHA256 slot ready for a hash pin. Unauthenticated GitHub latest-release API is a fallback, not the primary path.
 **Rejected:** Always use `releases/latest` (the original behavior).
 **Why:** Unauthenticated GitHub API is rate-limited to 60 requests/hour per IP. A shop flashing 20 phones in an afternoon would either hit the limit or inherit whatever upstream breaking change happened to ship that morning. Pinning gives deterministic behavior across a batch; the fallback covers "we moved to a newer version and forgot to update the script."
+
+---
+
+## D15 — Pivot from LineageOS back to stock Android (2026-04-17)
+
+**Pick:** Ship DevBox on **stock Android**, not LineageOS. On Pixel-class devices with unlockable bootloaders, add Magisk root as an additive feature.
+**Rejected:** LineageOS as the default OS (the original v0.1 direction).
+**Why:** LineageOS was picked for "isolation / no Google services." In practice on Pixel 8:
+- **Broken UX debts:** no TTS engine ships by default, several voice input paths fail on Android 16 (`termux-speech-to-text` BadTokenException), Signal 11 Termux crashes observed.
+- **No Play Store** means customers can't install the voice keyboards and apps they expect (Whisper Input, Gboard).
+- **Isolation was already handled by Termux.** Claude Code is sandboxed at the process level regardless of underlying OS — LineageOS added no meaningful security, only friction.
+- **Worse for reselling.** Customers buy a "phone that runs Claude Code," not "a phone with a weird OS."
+Stock Android with bloatware stripped + optional Magisk root gives root-where-we-can + app compat + security patches + familiar UX. Net win.
+**Tradeoff:** We lose the "runs a clean de-Googled OS" marketing line. Replaced with "real Android, no clutter, optional root" — arguably stronger for the target buyer.
+
+## D16 — Flash Tool (flash.android.com) over manual fastboot for Pixel-path flashing
+
+**Pick:** Use Google's official web-based Android Flash Tool (flash.android.com) as the primary flashing path for Pixels. Manual fastboot-from-CLI is the documented fallback.
+**Rejected:** Command-line only (the "pro" path). Heimdall / Odin (Samsung-only, wrong device family).
+**Why:** Flash Tool is zero-install (runs in Chrome/Edge via WebUSB), handles A/B slot flashing correctly, keeps the bootloader unlocked by default for our workflow, and is officially supported by Google for every Pixel. It removes the biggest human-error risk from the flashing step — typos in fastboot commands. For Joe's cousin flashing 20 devices, a web UI with a "Flash" button beats a command transcript every time.
+**Tradeoff:** Requires Chrome/Edge and a live USB connection for ~15 min. Requires killing any running ADB server (one-process-owns-USB rule) — documented in `FLASH.md`.
+
+## D17 — Magisk root is best-effort and additive; never required
+
+**Pick:** Magisk root is installed on devices that can be unlocked (Pixels, unlocked Samsungs). Path B devices (carrier-locked Samsungs) ship without root. All DevBox core features (Claude Code, Termux, SSH, sync) must work without root. Root unlocks *additional* features (hardened kiosk mode, systemless hosts blocklist).
+**Rejected:** "Rooted devices only" as a product positioning (excludes carrier-locked resale stock). Requiring root for any core feature.
+**Why:** The S20 FE (Verizon) has a permanently locked bootloader. Joe's cousin's inventory includes many such devices. Making root a requirement would cut our addressable supply dramatically. And practically, Termux + Claude Code on unrooted stock Android is indistinguishable from the rooted experience for 95% of coding work.
+**Tradeoff:** Two device paths to document and QA. Acceptable because Path A and Path B converge at step 2 (Termux provisioning) — they only differ in the initial flashing step.
+
+## D18 — Pixel 8 Magisk patches `init_boot.img`, NOT `boot.img`
+
+**Pick:** Extract `init_boot.img` from the factory zip, patch via Magisk's "Patch a File" mode, flash with `fastboot flash init_boot magisk_patched.img` to active slot only.
+**Rejected:** Patching `boot.img` (the pre-Android 13 path). Flashing to both slots simultaneously.
+**Why:** Pixel 8 (shiba) and all Pixel 7-class+ devices split kernel and ramdisk into separate partitions — `boot.img` holds the kernel, `init_boot.img` holds the ramdisk. Magisk's code-injection point is the ramdisk. Patching the wrong partition does nothing (if we're lucky) or bootloops (if we're not). Flashing only the active slot preserves the inactive slot as a clean-stock recovery option: `fastboot set_active <other>` recovers a botched root in 3 seconds.
+**Tradeoff:** Requires knowing which partition to patch per device. Magisk v26+ auto-detects from the image type, so as long as we feed it the right file, it patches correctly. We also document the partition explicitly in FLASH.md so nothing relies on implicit detection.

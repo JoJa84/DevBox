@@ -2,8 +2,9 @@
 #
 # DevBox provision.sh
 #
-# Runs inside Termux on a factory-reset Galaxy S22. Installs Node, Python, git,
-# Claude Code CLI, and MCP server packages. Idempotent: safe to re-run.
+# Runs inside Termux on a freshly-flashed Android 12+ phone (Pixel with Magisk
+# root or stock-locked Samsung). Installs Node, Python, git, Claude Code CLI,
+# and MCP server packages. Idempotent: safe to re-run.
 #
 # Usage (from Termux):
 #   bash provision.sh

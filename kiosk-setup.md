@@ -51,21 +51,32 @@ Stock Samsung One UI launcher is fine. Third-party launchers (Nova, Lawnchair) g
 
 ---
 
-## Path B — Rooted (v1+ territory, documented for the curious)
+## Path B — Rooted kiosk (Pixel + Magisk devices)
 
-**Target buyer:** power users, enterprise kiosk deployments.
-**Lockdown level:** High — single-purpose device, user cannot escape.
-**Effort:** ~30 min per device, voids warranty, trips Knox eFuse (permanent).
+**Target buyer:** power users who explicitly want a single-purpose device.
+**Lockdown level:** High — user cannot escape without a root-level reset.
+**Availability:** Only on devices with Magisk root (Path A in `FLASH.md`). Carrier-locked Samsungs cannot do this.
 
-This is **not** the v0 path. Notes for future work:
+Since DevBox v0.2 ships with Magisk root on Pixels, hardened kiosk mode is now a real option rather than a v1 aspiration. Optional for the v0.2 beta cohort, recommended for any buyer asking for "ChromeOS-style single-purpose phone."
 
-1. Unlock bootloader: `adb reboot bootloader` → `fastboot flashing unlock` (Samsung requires enabling OEM unlock first + 7-day waiting period).
-2. Flash Magisk: download Magisk APK, patch the stock boot image, flash the patched image.
-3. Install a kiosk launcher that requires a long-press escape sequence (e.g. Fully Kiosk Browser in app mode, Hexnode, or a custom launcher).
-4. Use Magisk modules to disable setup wizard, Google services, etc.
-5. Flash a custom recovery (TWRP) so the user can reflash to stock themselves.
+### Steps
 
-**Knox caveat:** Samsung's eFuse (Knox bit) trips the moment you unlock the bootloader. Knox-dependent features (Samsung Pay, Secure Folder, work profiles) are permanently disabled. For a dev sandbox, this is fine.
+1. Confirm Magisk root is working: open Magisk app → top row shows `Magisk — [version]`.
+2. Grant Magisk root to Termux: Magisk → **Superuser** tab → **Termux** → toggle ON.
+3. Install a kiosk launcher from F-Droid or Play Store (e.g., [Olauncher](https://play.google.com/store/apps/details?id=app.olauncher) minimal + long-press escape, or [Fully Kiosk Browser](https://www.fully-kiosk.com/) app-mode for maximum lockdown).
+4. Optionally install Magisk modules to further harden:
+   - `systemless-hosts` — blocks ad/tracking domains at DNS level.
+   - Disable setup wizard re-triggers, hide system notifications, etc.
+5. Set the kiosk launcher as default (Settings → Apps → Default apps → Home app).
+6. Pin Termux via Screen Pinning (Path A step 1) with "require PIN to unpin" ON — layered defense.
+
+### Escape path
+
+If the buyer ever gets locked out (forgot kiosk PIN): power off → Vol Down + Power to bootloader → recovery → wipe data. They lose their DevBox work but the phone recovers. Document this prominently on the shipping card.
+
+### Knox caveat (Samsung-specific)
+
+Samsung's eFuse (Knox bit) trips the moment you unlock the bootloader. Knox-dependent features (Samsung Pay, Secure Folder, work profiles) are permanently disabled. For an unlocked Samsung DevBox this is fine — we're not positioning it as a stock daily driver. Pixel devices do not have a Knox equivalent; unlocking is a clean "yellow banner on boot" with no hidden cost.
 
 ---
 

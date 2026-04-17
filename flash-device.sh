@@ -37,7 +37,7 @@ adb start-server >/dev/null 2>&1
 
 device_count=$(adb devices | awk 'NR>1 && $2=="device"' | wc -l | tr -d ' ')
 if [ "$device_count" = "0" ]; then
-    die "No device connected. Plug in the Galaxy S22 with USB debugging enabled."
+    die "No device connected. Plug in the target phone with USB debugging enabled."
 elif [ "$device_count" -gt "1" ]; then
     die "Multiple devices connected. Disconnect all but the one you're flashing."
 fi

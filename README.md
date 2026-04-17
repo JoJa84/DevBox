@@ -2,7 +2,7 @@
 
 **A phone that runs Claude Code. Nothing else.**
 
-Take a refurbished phone. Flash it with LineageOS. Boot into a full Claude Code terminal. Sign in once. Start building.
+Take a refurbished phone. Flash it with stock Android, root it with Magisk (where the bootloader allows), strip the bloat. Boot into a full Claude Code terminal. Sign in once. Start building.
 
 No personal data on the device. No apps you don't need. No risk to your main machine. Just an AI coding agent in your pocket — isolated, portable, and always ready.
 
@@ -18,8 +18,8 @@ And because it's a phone, you take it everywhere. Code from the couch. Debug on 
 
 ## What it actually is
 
-- A **Pixel 8** (or Galaxy S20/S21/S22/S23, or any Android 12+ phone) running **LineageOS** — a clean, open-source Android with no Google services and no bloatware.
-- **Termux** providing a full Linux terminal with Node, Python, git, and SSH.
+- A **Pixel 8** (or Galaxy S20/S21/S22/S23, or any Android 12+ phone) running **stock Android** — with **Magisk root** on devices with unlockable bootloaders (Pixels, unlocked Samsungs), or stock-with-bloatware-stripped on carrier-locked devices. Real Android, real Play Store, no clutter.
+- **Termux** providing a full Linux terminal with Node, Python, git, and SSH. Root-aware where available.
 - **Claude Code CLI** installed and ready to go at first boot.
 - **MCP servers** preloaded (filesystem, GitHub).
 - **State sync** so you can start a project on the phone and pick it up on your PC — via GitHub (bidirectional) or Google Drive (backup).
@@ -38,7 +38,7 @@ $ claude
 ╭──────────────────────────────────────╮
 │ Claude Code                          │
 │                                      │
-│ Pixel 8 · LineageOS · Termux         │
+│ Pixel 8 · Android 16 · Termux (root) │
 │ Your pocket AI sandbox               │
 ╰──────────────────────────────────────╯
 
@@ -49,26 +49,26 @@ $ claude
 
 You're SSH'd into a phone in your pocket, talking to Claude Code, building software. From your couch. Or your office. Or the other side of the house.
 
-## Build your own (15 minutes)
+## Build your own (15–30 minutes)
 
 Everything you need is in this repo. No special equipment — just a USB cable and a laptop.
 
 ### What you need
 
 - Any Android 12+ phone (tested: Pixel 8, Galaxy S20 FE, Galaxy S23 Ultra)
-- A USB-C cable
+- A USB-C cable (USB 3+ preferred for faster flashing)
 - A PC with ADB installed ([download](https://developer.android.com/tools/releases/platform-tools))
 - A WiFi network
 - An Anthropic account ([sign up](https://claude.ai))
+- Chrome/Edge (for `flash.android.com` — Pixel path only)
 
 ### Steps
 
-1. **Flash LineageOS** on the phone ([full guide](FLASH.md))
-   - Unlock bootloader (one command)
-   - Flash LineageOS recovery + ROM (three commands + one sideload)
-   - ~15 minutes, zero brick risk — you can always restore stock Android
+1. **Flash the phone** ([full guide](FLASH.md)) — choose the path for your device:
+   - **Pixel (unlockable bootloader, recommended):** use [flash.android.com](https://flash.android.com) to flash stock Android, then patch `init_boot.img` with Magisk for full root. ~15 min.
+   - **Carrier-locked Samsung (e.g. Verizon S20 FE):** skip flashing. Just factory-reset and strip bloatware via `adb shell pm uninstall --user 0 ...`. No root. ~10 min.
 
-2. **Install Termux** + push DevBox scripts
+2. **Install Termux + push DevBox scripts** (both paths)
    ```bash
    bash flash-device.sh
    ```
@@ -103,7 +103,7 @@ Now you can type prompts, read output, and control the agent from your laptop �
 
 | File | What it does |
 | --- | --- |
-| [`FLASH.md`](FLASH.md) | Full step-by-step for flashing a phone |
+| [`FLASH.md`](FLASH.md) | Full step-by-step for both device paths |
 | [`flash-device.sh`](flash-device.sh) | PC-side script: installs Termux + pushes files via ADB |
 | [`provision.sh`](provision.sh) | Phone-side: installs Node, Claude Code, MCP servers |
 | [`wizard.sh`](wizard.sh) | First-boot setup: Anthropic login, sync, keyboard mode |
@@ -115,13 +115,16 @@ Now you can type prompts, read output, and control the agent from your laptop �
 ## FAQ
 
 **Will this brick my phone?**
-No. We don't touch the bootloader's core firmware. Worst case: boot into fastboot (hardware buttons always work), flash Google's stock image, phone is back to normal in 5 minutes.
+No. On Pixels, the bootloader stays unlocked and the A/B slot system gives us a bailout lane — if Magisk bootloops us, `fastboot set_active <other-slot>` drops us back to clean stock in 3 seconds. On Samsung Verizon, we never touch the bootloader at all. Worst case on any device: re-run `flash.android.com` (Pixel) or factory reset via Recovery (Samsung) — back to stock in 10 minutes.
+
+**Why stock Android instead of LineageOS?**
+We tried LineageOS first. It's a worse UX for this product: no Play Store (breaks Whisper Input voice keyboards that buyers expect), no Google services, and more moving parts. The isolation argument doesn't hold — Termux already sandboxes Claude Code regardless of the underlying OS. Stock + Magisk gives us full root where we can have it, plus the app compatibility Play Store provides.
 
 **Does it need a SIM card?**
 No. WiFi only. Add a SIM if you want cellular data, but it's not required.
 
 **Can I use it as a regular phone too?**
-Yes. LineageOS is full Android — you can install any APK. But the point is that you *don't*. The isolation is the feature.
+Yes — it's full Android, you can install any APK. But the point is that you *don't*. The isolation is the feature.
 
 **What about battery life?**
 Claude Code sessions are network calls, not local compute. Battery impact is similar to browsing the web. A full charge lasts a workday of moderate use.
@@ -139,9 +142,12 @@ Nothing. But DevBox is pre-configured, pre-flashed, and ready to go in 30 second
 
 ## Status
 
-**v0 — first device flashed and working.** Pixel 8 on LineageOS 23.2. Claude Code running, SSH working, wireless control confirmed.
+**v0.2 — Pixel 8 rooted on stock, S20 FE shipping unrooted.**
+- **Pixel 8:** stock Android 16 (BP4A.251205.006), Magisk v30.7 root confirmed, Claude Code provisioning in progress.
+- **Galaxy S20 FE (Verizon):** stock Samsung One UI, 195+ bloatware packages nuked, Claude Code running, SSH live.
+- **Galaxy S23 Ultra:** not started.
 
-Next: flash the Galaxy S20 FE and S23 Ultra, then a small production run.
+Next: finish Pixel 8 provisioning, document the two-path FLASH.md, then a small production run.
 
 ## License
 
