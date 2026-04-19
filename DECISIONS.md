@@ -156,3 +156,14 @@ Stock Android with bloatware stripped + optional Magisk root gives root-where-we
 - **Lose iptables-level tweaks** (custom NAT, VPN rules). Not needed for the product.
 - **Lose Magisk-module kiosk hardening.** Accept Screen Pinning as the best-available soft lockdown.
 - **Simpler docs, smaller attack surface, no "re-root after OTA" support burden.** Net big win for v0.2 shipping quality.
+
+## D21 — Rename DevBox → Codefone (2026-04-19)
+
+**Pick:** Rebrand the project from "DevBox" to **"Codefone"** across all docs, scripts, config paths, CLI command names, and the GitHub repo. Register the Codefone mark; publish a trademark usage policy in TRADEMARKS.md.
+**Rejected:** Ship under "DevBox" as a provisional working name (the position held up until 2026-04-19).
+**Why:** "DevBox" collides with multiple commercial products in the developer-tools space: **Microsoft Dev Box** (Azure cloud developer workstation, shipping since 2022), **Sealos DevBox** (cloud dev environment), and **Jetify Devbox** (Nix-based dev environments). Even though our product category differs (on-device Linux VM, not cloud workstation), the overlap is close enough for consumer confusion and for any incumbent — particularly Microsoft — to send a cease-and-desist if we reach visibility. Renaming now is cheap (zero forks, zero stars, zero downstream users at time of rename). Renaming at 1,000 users would be expensive and damaging. "Codefone" tested clean: no GitHub repos, no USPTO hits, `codefone.com` available, nearest neighbor is `cophone.io` (semantically adjacent but phonetically distinct).
+**Tradeoff:**
+- Every prior contributor's existing `~/.devbox/` directory on their own Pixel becomes stale. One-line migration: `mv ~/.devbox ~/.codefone` then re-run `provision.sh`.
+- The one external signal we had (43 clones / 30 uniques on 2026-04-17 from Joe's eBay listing) saw the old name on the listing. Listing text needs updating to match.
+- Any existing forum posts, Discord mentions, or video demos referencing "DevBox" become orphaned history. Acceptable at this stage — the audience is negligibly small.
+- Replaces BRAND-RISK.md (which analyzed the DevBox collision risk and is now obsolete) — deleted in this commit.
