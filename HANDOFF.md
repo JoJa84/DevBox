@@ -1,23 +1,23 @@
 # HANDOFF — Session-to-session pickup
 
-**Last updated:** 2026-04-19 — Pixel 8 reference unit: voice I/O unblocked, Claude Code now runs in bypass-permissions mode with sudo available. Confirmed end-to-end from PC.
+**Last updated:** 2026-04-19 (evening) — vmbridge Magisk module built + installed. VM→Android root control confirmed end-to-end. Network-independent per D23.
 
-**Current status:** **v0.2 shipping stance locked.**
+**Current status:** **v0.3 shipping stance — capability layer on.**
 - **Galaxy S20 FE (Verizon, Path B legacy):** ✅ stock + bloatware-stripped, Claude Code 2.0.x via Termux, SSH on 8022, OpenBrain MCP wired. Kept only as legacy SKU — Claude 2.1.x incompatible with Termux/Bionic.
-- **Pixel 8 (Path A, primary):** ✅ stock Android 16 + Linux Terminal + Debian VM, ✅ Claude Code **2.1.114** native, ✅ PATH persisted, ✅ SSH from PC via nc relay on 2223 (Terminal's built-in forwarder is flaky — see FLASH.md §A6), ✅ `android.permission.RECORD_AUDIO` granted, mic verified live (RMS > 0.004 on ambient capture), ✅ voice pipeline built (`~/bin/v` whisper.cpp + `~/bin/say` espeak-ng + Stop hook), ✅ Claude `settings.local.json` → `defaultMode: bypassPermissions`, ✅ droid has `NOPASSWD: ALL` sudo, Magisk uninstalled per D20.
+- **Pixel 8 (Path A, primary):** ✅ stock Android 16 CP1A.260305.018, ✅ Magisk v30.7 on **both A/B slots** (D22 reverses D20), ✅ Linux Terminal + Debian VM + Claude Code **2.1.114**, ✅ `vmbridge` Magisk module (persistent adb TCP 5555 + iptables-restricted to avf_tap_fixed + Terminal auto-launch on boot_completed), ✅ `~/bin/android` helper (`android su "CMD"` → root on Android), ✅ VM-generated adbkey registered at `/sdcard/Codefone/vm_adbkey.pub` for persistent re-install on every boot, ✅ SSH from PC via `nc` relay on 2223, ✅ voice pipeline (`~/bin/v` whisper.cpp + `~/bin/say` espeak-ng + Stop hook), ✅ `~/.claude/CLAUDE.md` installed (tells on-device Claude: contained env, capability > caution), ✅ Aurora Store v4.8.1 (FOSS Play Store client, no Google sign-in), ✅ OTAs blocked (`ota_disable_automatic_update=1` + `auto_update_apps=0`), ✅ `defaultMode: bypassPermissions`, ✅ `NOPASSWD: ALL` sudo.
 - **Galaxy S23 Ultra:** not started.
 
 ## Next actions, in priority order
 
-1. **First production Pixel 8 complete** (this unit is now the golden reference build). Remaining polish:
-   - `claude login` OAuth flow — walk through it once on this unit, document any snags.
-   - Confirm `claude` interactive UI renders OK on Pixel 8's 6.2" screen at default font.
-   - Disable auto-OTAs on this reference unit: Settings → System → Software update → Auto-download OFF (avoid the OTA-slot-flip quirk).
-2. **Write `codefone revive` script** — one-tap `am force-stop com.android.virtualization.terminal` + relaunch to cure "Preparing terminal" hang. Ship as an ADB-invokable script AND as an on-device shortcut.
-3. **MCP wiring inside the Debian VM** — filesystem, git, github, web-fetch. Need to register via `claude mcp add --scope user`. Test each.
-4. **Path B bloatware-strip script** — consolidate 195 commands into `strip-bloat-s20.sh`.
-5. **Galaxy S23 Ultra** — acquire, repeat Path A if it's on Android 15+ with Linux Terminal available, else Path B.
-6. **Production run prep** — decide batch size (10? 20?), finalize logo, write eBay/Skool listing copy.
+1. **Reboot-test this reference Pixel 8.** The `vmbridge` module is installed. On the next cold boot, verify: adbd on 5555, iptables rule, Terminal auto-launches, VM comes up, `~/bin/android su id` from inside VM returns `uid=0`. If all green → golden build is locked.
+2. **`codefone-setup.sh` end-to-end on a second phone.** The script exists (`codefone-setup.sh` + `scripts/vm-provision.sh`). Needs a real unflashed Pixel to validate the 10-min pitch.
+3. **`claude login` OAuth flow** — walk through it once on this unit, document any snags.
+4. **Confirm `claude` interactive UI renders OK** on Pixel 8's 6.2" screen at default font.
+5. **Write `codefone revive` script** — one-tap `am force-stop com.android.virtualization.terminal` + relaunch to cure "Preparing terminal" hang. Ship as an ADB-invokable script AND as an on-device shortcut.
+6. **MCP wiring inside the Debian VM** — filesystem, git, github, web-fetch. Need to register via `claude mcp add --scope user`. Test each.
+7. **Path B bloatware-strip script** — consolidate 195 commands into `strip-bloat-s20.sh`.
+8. **Galaxy S23 Ultra** — acquire, repeat Path A if it's on Android 15+ with Linux Terminal available, else Path B.
+9. **Production run prep** — decide batch size (10? 20?), finalize logo, write eBay/Skool listing copy.
 
 ## Blockers for shipping a production run
 

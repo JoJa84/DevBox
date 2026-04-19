@@ -167,3 +167,26 @@ Stock Android with bloatware stripped + optional Magisk root gives root-where-we
 - The one external signal we had (43 clones / 30 uniques on 2026-04-17 from Joe's eBay listing) saw the old name on the listing. Listing text needs updating to match.
 - Any existing forum posts, Discord mentions, or video demos referencing "DevBox" become orphaned history. Acceptable at this stage — the audience is negligibly small.
 - Replaces BRAND-RISK.md (which analyzed the DevBox collision risk and is now obsolete) — deleted in this commit.
+
+## D22 — Re-add Magisk on Pixel 8 (reverses D20) (2026-04-19)
+
+**Pick:** Magisk is **re-installed** on both A/B slots. D20 is reversed. Canonical Codefone Pixel 8 now ships with Magisk v30.7 patched `init_boot.img` on both slots + persistent TCP ADB bridge + VM→Android root control.
+**Rejected:** Continuing with unrooted stock Android (D20's stance).
+**Why:** D20 punted root because (a) OTAs silently broke Magisk, and (b) the VM gave us root-in-guest. But without Android-side root, the on-device Claude is stuck inside the VM — it can't `pm grant` Android permissions, can't install APKs programmatically, can't drive system apps, can't manage the device at all. Joe's clearest product pitch — **"plug Claude into anything via USB-C and have it take over"** — requires Android root so Claude in the VM can reach out and control USB peripherals, system services, and installed apps. Meanwhile OTAs are now blocked at the settings layer (`ota_disable_automatic_update=1`) and we flash Magisk to **both** A/B slots so a future slot-flip can't revert root silently. The original failure mode D20 ran from is mitigated.
+**Tradeoff:**
+- Re-root dance during flashing: extract `init_boot.img` from factory zip, Magisk-patch, `fastboot flash init_boot magisk_patched.img` to _both_ slots. Adds ~3 min per device. Automated in `codefone-setup.sh`.
+- Exposed attack surface: root + persistent ADB. Mitigated by `vmbridge` Magisk module's iptables rule restricting port 5555 to `avf_tap_fixed` interface only (see D23).
+- "You might brick your phone" risk on re-root: documented `init_boot_STOCK.img` backup per device for 30-second fastboot rollback.
+
+## D23 — VM↔Android bridge via `vmbridge` Magisk module (2026-04-19)
+
+**Pick:** Ship a Magisk module `vmbridge` that on every boot (a) sets `persist.adb.tcp.port=5555`, (b) installs the Debian VM's `adbkey.pub` into Android's `/data/misc/adb/adb_keys`, (c) applies iptables rules restricting port 5555 to `avf_tap_fixed` + `lo`, (d) restarts `adbd` with TCP enabled, (e) auto-launches the Terminal app after `sys.boot_completed=1` so the VM comes up unattended. The VM's `~/bin/android` helper then runs `adb connect 172.27.32.41:5555` against Android's internal AVF tap gateway — **network-independent** (works on WiFi, cellular, or airplane mode).
+**Rejected:**
+- **Per-boot manual `adb tcpip 5555` + manual pairing** — breaks the "$300 device, 10-min flash" pitch; Joe can't re-run setup every time the phone reboots.
+- **SSH tunnel from VM to an Android-side service** — no small "Android ADB daemon over local socket" exists by default; re-implementing it via shelf `socat` is brittle.
+- **Bake a shared adbkey into the module for all devices** — fine for dev, terrible for production (one key leaks = every Codefone's bridge compromised). We bake a _default_ key for first-boot, but the canonical approach is: VM generates its own key, setup script drops it at `/sdcard/Codefone/vm_adbkey.pub`, module picks it up next boot.
+**Why:** The bridge has to be (1) reproducible across every shipped device, (2) network-independent (Joe pointed out the phone moves between networks and onto cellular), (3) secure-enough that we don't expose port 5555 on WiFi/cellular, (4) automatic on boot. A Magisk module meets all four: one zip installs on every phone, AVF tap is internal point-to-point (indifferent to external network), iptables pins the attack surface to the tap, and `service.sh` runs at every boot without user action.
+**Tradeoff:**
+- AVF tap interface naming (`avf_tap_fixed`) is Google's — if a future Android version renames it, the iptables rule needs updating. Module is easily re-flashable.
+- Port 5555 on `lo` is still accessible to any root process on Android (not just the VM). Acceptable because Android root is already trusted in our model.
+- First-boot chicken-and-egg: module baked-in adbkey doesn't match a freshly-provisioned VM. Resolved by `/sdcard/Codefone/vm_adbkey.pub` pickup path — VM writes its pubkey there on first boot, next boot the module installs it.

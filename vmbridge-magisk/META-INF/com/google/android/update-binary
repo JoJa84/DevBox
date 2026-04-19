@@ -1,0 +1,30 @@
+#!/sbin/sh
+#################
+# Magisk Module Installer (vmbridge)
+#################
+umask 022
+ui_print() { echo "$1"; }
+require_new_magisk() {
+  ui_print "*******************************"
+  ui_print " Please install Magisk v25.0+! "
+  ui_print "*******************************"
+  exit 1
+}
+#########################################################################################
+# Environment
+#########################################################################################
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+# This path should work for Magisk v25+
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+  [ $MAGISK_VER_CODE -lt 25000 ] && require_new_magisk
+else
+  require_new_magisk
+fi
+
+install_module
+exit 0

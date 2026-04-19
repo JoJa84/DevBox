@@ -1,0 +1,6 @@
+id=vmbridge
+name=Codefone VM Bridge
+version=v1.0.0
+versionCode=1
+author=Joe Jajati
+description=Opens persistent TCP ADB on port 5555 and whitelists the Codefone Debian VM's adbkey so the in-VM Claude can drive Android as root without manual per-boot setup. Pairs with codefone.com firmware.
