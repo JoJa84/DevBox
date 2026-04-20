@@ -149,6 +149,7 @@ say "Enabling FUTO Keyboard (primary) + WhisperIME (voice) + mic permissions"
 "$ADB" shell 'ime enable org.woheller69.whisper/com.whispertflite.WhisperInputMethodService' 2>/dev/null || true
 "$ADB" shell 'ime set    org.futo.inputmethod.latin/.LatinIME' 2>/dev/null || true
 "$ADB" shell 'ime disable org.futo.voiceinput/.VoiceInputMethodService' 2>/dev/null || true
+"$ADB" shell 'settings put secure voice_recognition_service org.woheller69.whisper/com.whispertflite.WhisperRecognitionService' 2>/dev/null || true
 
 # ---------- 5. Grant Terminal app mic + camera ----------
 say "Granting Terminal app RECORD_AUDIO + CAMERA"
