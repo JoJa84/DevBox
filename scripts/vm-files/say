@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Speak text aloud using piper neural TTS.
+# Usage:
+#   say "hello world"
+#   echo "hi" | say
+#   say --voice lessac-high "something"      # pick voice
+#   say --list                                # list available voices
+# Default voice via $PIPER_VOICE env or fallback to lessac-high if present.
+set -euo pipefail
+
+VOICES_DIR="${PIPER_VOICES_DIR:-$HOME/piper/voices}"
+PIPER_BIN="${PIPER_BIN:-$HOME/piper/bin/piper}"
+
+default_voice() {
+  for v in en_US-libritts_r-medium en_US-lessac-high en_US-amy-medium; do
+    [ -f "$VOICES_DIR/$v.onnx" ] && { echo "$v"; return; }
+  done
+  echo "en_US-amy-medium"
+}
+
+VOICE=""
+TEXT_ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --voice)  VOICE="$2"; shift 2 ;;
+    --list)
+      ls "$VOICES_DIR"/*.onnx 2>/dev/null | sed 's|.*/||; s/\.onnx$//'; exit 0 ;;
+    *) TEXT_ARGS+=("$1"); shift ;;
+  esac
+done
+
+[ -z "$VOICE" ] && VOICE="${PIPER_VOICE:-$(default_voice)}"
+VOICE_PATH="$VOICES_DIR/$VOICE.onnx"
+
+if [ ${#TEXT_ARGS[@]} -gt 0 ]; then
+  TEXT="${TEXT_ARGS[*]}"
+else
+  TEXT=$(cat)
+fi
+[ -n "$TEXT" ] || exit 0
+
+if [ -x "$PIPER_BIN" ] && [ -f "$VOICE_PATH" ]; then
+  printf '%s' "$TEXT" | LD_LIBRARY_PATH="$HOME/piper/bin:${LD_LIBRARY_PATH:-}" \
+    "$PIPER_BIN" --model "$VOICE_PATH" --output-raw 2>/dev/null \
+    | paplay --raw --rate=22050 --format=s16le --channels=1 2>/dev/null
+else
+  espeak-ng -s 175 -v en-us+f3 "$TEXT"
+fi

@@ -119,14 +119,14 @@ esac
 BRIDGE
 chmod +x ~/bin/android
 
-# ---- 6. Voice stack (whisper.cpp + espeak-ng) ----
+# ---- 6. Voice stack (whisper.cpp input + Piper neural TTS output) ----
 if [ ! -x ~/bin/whisper-cli ]; then
   mkdir -p ~/src && cd ~/src
   if [ ! -d whisper.cpp ]; then
     git clone --depth=1 https://github.com/ggerganov/whisper.cpp.git
   fi
   cd whisper.cpp
-  cmake -B build -DWHISPER_OPENBLAS=OFF >/dev/null 2>&1
+  cmake -B build -DWHISPER_OPENBLAS=OFF -DGGML_NATIVE=OFF -DGGML_CPU_ARM_ARCH=armv8-a >/dev/null 2>&1
   cmake --build build -j --config Release --target whisper-cli >/dev/null 2>&1
   mkdir -p ~/models
   [ -f ~/models/ggml-small.en.bin ] || \
@@ -152,32 +152,35 @@ cat "$TMP/out.json" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.s
 V
 chmod +x ~/bin/v
 
-cat > ~/bin/say <<'SAY'
-#!/usr/bin/env bash
-# say — TTS via espeak-ng. Pipes text from stdin or args to the speaker.
-if [ $# -eq 0 ]; then
-  espeak-ng -s 170 -v en-us
-else
-  espeak-ng -s 170 -v en-us "$*"
+# Piper TTS: download binary + default voice (aarch64 prebuilt from upstream).
+# Audio must be routed through paplay (PulseAudio) so Android's media audio
+# manager handles it correctly — raw aplay hits ALSA directly and silently
+# drops on VirtIO. See D27.
+if [ ! -x ~/piper/bin/piper ]; then
+  mkdir -p ~/piper
+  curl -fsSL -o /tmp/piper.tgz \
+    https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz
+  tar -xzf /tmp/piper.tgz -C ~/piper --strip-components=1
+  rm /tmp/piper.tgz
 fi
-SAY
-chmod +x ~/bin/say
+mkdir -p ~/piper/voices
+for v in en_US-amy-medium en_US-libritts_r-medium; do
+  if [ ! -f ~/piper/voices/$v.onnx ]; then
+    base="https://huggingface.co/rhasspy/piper-voices/resolve/main"
+    case $v in
+      en_US-amy-medium)        path="en/en_US/amy/medium/$v" ;;
+      en_US-libritts_r-medium) path="en/en_US/libritts_r/medium/$v" ;;
+    esac
+    curl -fsSL -o ~/piper/voices/$v.onnx       "$base/$path.onnx"
+    curl -fsSL -o ~/piper/voices/$v.onnx.json  "$base/$path.onnx.json"
+  fi
+done
 
-# ---- 7. Claude hooks (Stop hook speaks the response) ----
+# Install working say + Stop hook from repo (see scripts/vm-files/).
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd)"
+install -m 755 "$SCRIPT_DIR/vm-files/say"                 ~/bin/say
 mkdir -p ~/.claude/hooks
-cat > ~/.claude/hooks/speak-response.sh <<'HOOK'
-#!/usr/bin/env bash
-# Stop hook: if /bin/say is present, speak the last assistant message.
-LAST=$(cat 2>/dev/null || true)
-[ -x ~/bin/say ] || exit 0
-# The hook receives JSON on stdin with { "assistant_text": "..." }
-TEXT=$(echo "$LAST" | python3 -c "import json,sys
-try: d=json.load(sys.stdin); print(d.get('assistant_text',''))
-except Exception: pass" 2>/dev/null)
-[ -z "$TEXT" ] && exit 0
-echo "$TEXT" | ~/bin/say &
-HOOK
-chmod +x ~/.claude/hooks/speak-response.sh
+install -m 755 "$SCRIPT_DIR/vm-files/speak-response.sh"   ~/.claude/hooks/speak-response.sh
 
 # ---- 8. Claude settings: bypassPermissions by default ----
 mkdir -p ~/.claude

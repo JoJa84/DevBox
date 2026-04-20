@@ -224,3 +224,36 @@ Stock Android with bloatware stripped + optional Magisk root gives root-where-we
 - **Binary redistribution** — WhisperIME is GPL-3, redistribution fine. The `.tflite` model is redistributable (it's a converted OpenAI Whisper weights file, MIT-licensed source). APK + model go in `apks/` / `models/` (both git-ignored); setup script fetches or falls back to local cache.
 - **WhisperIME CANNOT be the sole default IME** — it's declared as `mSubtypeMode=voice mIsAuxiliary=true`, so it has no character keys. If the only enabled IME is WhisperIME, the user has no way to type. The setup script must always install **and keep** a typing keyboard (FUTO Keyboard). If a user uninstalls FUTO, Android silently falls back to Gboard, but Gboard **hides the IME switcher globe** by default, making WhisperIME unreachable via the normal switch UX. Symptom: "I deleted FUTO and now I can't switch to WhisperIME." Fix: reinstall FUTO (or re-enable its UX affordance). Learned 2026-04-19.
 - **Upstream source:** APK from F-Droid or woheller69's GitHub releases (`github.com/woheller69/whisperIME`). Model files bundled with the app's APK assets — for redistribution we copy them out of an installed instance rather than pulling from a random CDN.
+
+## D26 — Tailscale inside the Debian VM as preferred PC↔VM transport (2026-04-19)
+
+**Pick:** Install Tailscale (`apt install tailscale` + `tailscale up`) **inside the Debian VM**, not on the Android host. The VM gets its own tailnet IP and hostname (`codefone-pixel8` @ `100.65.116.108` on Joe's tainlet, FQDN `codefone-pixel8.tail0d843c.ts.net`). From any Tailscale-connected device: `ssh -p 2222 droid@codefone-pixel8.tail0d843c.ts.net` works regardless of what network the phone is on.
+
+**Rejected:**
+- **Tailscale on Android host** — would give the Android OS a tailnet IP but the VM wouldn't be reachable without extra routing (subnet-routing or userspace proxy). The VM is where Claude runs; that's what needs to be on the tainlet.
+- **Continue relying on adb + nc relay + codefone-ssh.sh** — works only when the phone is USB-tethered to a PC that has adb. Useless from a different PC, useless over the network, useless when the phone is just sitting on WiFi.
+- **Plain reverse SSH tunnel / ngrok / Cloudflare Tunnel** — single-endpoint, brittle, more moving parts. Tailscale solves the same problem with a real mesh and MagicDNS.
+
+**Why:** D23's vmbridge gave us VM→Android control. D26 gives us PC→VM (or any-other-device→VM) reachability. Together they mean: Joe can sit at any computer that has Tailscale, type `ssh droid@codefone-pixel8.tail0d843c.ts.net`, and immediately get a shell in the Codefone, no USB, no IP fishing, no network gymnastics. This is the "always-reachable phone agent" promise of the product.
+
+**Tradeoff:**
+- **Each unit needs to be enrolled** in a Tailscale tailnet at setup time. For Joe's own units: one `tailscale up` interactive sign-in is fine. For shipping: each customer needs their own Tailscale account (free for personal use) and `tailscale up --auth-key=...` using a key from their admin panel. The setup script should prompt for an auth key or skip and let the user enroll later.
+- **Tailscale free plan** covers up to 3 users and 100 devices — way more than any customer needs for a single phone. No $$ blocker.
+- **codefone-ssh.sh (adb+nc relay)** is no longer the primary transport but stays in the repo as a fallback for off-tainlet diagnostics (e.g., Joe's cousin flashing a device with no Tailscale account yet).
+- **The adb bridge is still needed** for a separate reason: vmbridge-generated VM→Android control (`~/bin/android su`). Tailscale doesn't replace that; it replaces the PC→VM side only.
+
+**Follow-up:** add Tailscale install + `tailscale up --auth-key=$TS_AUTH_KEY` to `codefone-setup.sh`, gated on an env var.
+
+## D27 — Route TTS through PulseAudio (`paplay`), not raw ALSA (`aplay`) (2026-04-19)
+
+**Pick:** All Piper TTS output in the Debian VM is piped through `paplay --raw --rate=22050 --format=s16le --channels=1`. Applied to both `~/bin/say` and the Claude Stop hook `~/.claude/hooks/speak-response.sh`. Script sources live in `scripts/vm-files/` in the repo; `vm-provision.sh` copies them verbatim so fresh installs get the working path.
+
+**Rejected:** `aplay` direct-to-ALSA. `aplay` writes to the VirtIO sound card's ALSA device, which exists but is not what Android's audio manager expects. Symptom: Piper generates WAV successfully, `aplay` exits clean with no error, no audio is heard. The default Pulse sink (`alsa_output.platform-2e000000.pci-pci-0000_00_0e.0.stereo-fallback`) is the one plumbed back to AudioFlinger → the phone's speaker. Routing via `paplay` hits that sink and the user hears audio. Learned 2026-04-19 (Joe: "voice didn't work. Seems like a hook fired and disabled it" — it hadn't disabled anything, aplay was silently dropping to the wrong device).
+
+**Why:** AVF exposes audio as VirtIO to the guest. The Linux Terminal image ships with both ALSA and PulseAudio, but only the PulseAudio sink is wired to Android's media stream. Any "audio works in raw ALSA tests but not from my app" symptom on AVF is almost always this routing difference.
+
+**Also decided (2026-04-19, same session):** set the `droid` user's Linux password to **`codefone`** in the provisioned VM. Purpose: the Terminal app's built-in "Allow SSH access" toggle and Tailscale SSH both route through PAM and prompt for this password on first enable. Our own sshd on port 2222 is pubkey-only (unchanged), so this password is a convenience, not a security surface.
+
+**Tradeoff:** If a user installs a larger/better Piper voice themselves (e.g., `en_US-libritts_r-high`), the `say` script will pick it up automatically (prefers `libritts_r-medium > lessac-high > amy-medium` by default). Kokoro-82M remains queued as the quality upgrade — see HANDOFF.md.
+
+
