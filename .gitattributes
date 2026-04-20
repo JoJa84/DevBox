@@ -5,3 +5,4 @@
 *.md text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+scripts/vm-files/** text eol=lf
